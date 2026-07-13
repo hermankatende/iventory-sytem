@@ -84,7 +84,15 @@ class DashboardService:
         values = [float(r["total"] or 0) for r in rows][-months:]
         return {"labels": labels, "values": values}
 
-    def dashboard_payload(self, *, activity_page: int = 1, login_page: int = 1, assigned_site_ids=None, active_site_id=None) -> dict:
+    def dashboard_payload(
+        self,
+        *,
+        activity_page: int = 1,
+        login_page: int = 1,
+        assigned_site_ids=None,
+        active_site_id=None,
+        include_security_feed: bool = True,
+    ) -> dict:
         today = self._today()
 
         stock_rows = self.inventory_repository.list_current_stock(warehouse_id=active_site_id if active_site_id else None)
@@ -93,11 +101,13 @@ class DashboardService:
         low_stock = [row for row in stock_rows if row.get("is_low_stock")]
         inventory_value = sum(float(row.get("valuation", 0)) for row in stock_rows)
 
-        activity_qs = UserActivityLog.objects.select_related("user").order_by("-created_at")
-        login_qs = LoginHistory.objects.select_related("user").order_by("-created_at")
-
-        activity_page_obj = Paginator(activity_qs, 10).get_page(activity_page)
-        login_page_obj = Paginator(login_qs, 10).get_page(login_page)
+        activity_page_obj = None
+        login_page_obj = None
+        if include_security_feed:
+            activity_qs = UserActivityLog.objects.select_related("user").order_by("-created_at")
+            login_qs = LoginHistory.objects.select_related("user").order_by("-created_at")
+            activity_page_obj = Paginator(activity_qs, 10).get_page(activity_page)
+            login_page_obj = Paginator(login_qs, 10).get_page(login_page)
 
         expense_today_qs = apply_site_scope(
             Expense.objects.filter(date=today),

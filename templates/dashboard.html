@@ -88,7 +88,7 @@
     <div class="col-6 col-xl-2"><article class="stat-card h-100"><div class="kpi-label">Payments Today</div><div class="kpi-value">{{ cards.payments_today|default:0 }}</div></article></div>
   </div>
 
-  {% if activity_page_obj and login_page_obj %}
+  {% if is_admin and activity_page_obj and login_page_obj %}
     <div class="row g-3 fade-in-up">
       <div class="col-xl-6">
         <section class="block-card h-100">

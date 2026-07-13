@@ -2,6 +2,7 @@ from django.contrib.auth.decorators import login_required
 from django.shortcuts import render
 
 from src.application.dashboard.services.dashboard_service import DashboardService
+from src.shared.utils.site_context import is_admin_user
 from src.shared.utils.site_context import site_scope_from_request
 
 
@@ -18,6 +19,7 @@ def dashboard(request):
         login_page=login_page,
         assigned_site_ids=scope["assigned_site_ids"],
         active_site_id=scope["active_site_id"],
+        include_security_feed=is_admin_user(request.user),
     )
 
     breadcrumbs = [
