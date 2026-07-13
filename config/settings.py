@@ -84,12 +84,20 @@ TEMPLATES = [
     }
 ]
 
-USE_SQLITE = env_bool("USE_SQLITE", "1")
+DB_BACKEND = os.getenv("DB_BACKEND", "").strip().lower()
+if not DB_BACKEND:
+    if DJANGO_ENV in {"offline", "test"}:
+        DB_BACKEND = "sqlite"
+    else:
+        DB_BACKEND = "mysql"
 
-if DJANGO_ENV == "online":
-    USE_SQLITE = False
-elif DJANGO_ENV in {"offline", "test"}:
-    USE_SQLITE = True
+if env_bool("USE_SQLITE", "0"):
+    DB_BACKEND = "sqlite"
+
+if DB_BACKEND not in {"sqlite", "mysql"}:
+    raise RuntimeError("DB_BACKEND must be either 'sqlite' or 'mysql'.")
+
+USE_SQLITE = DB_BACKEND == "sqlite"
 
 if USE_SQLITE:
     DATABASES = {
