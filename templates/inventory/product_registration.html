@@ -1,0 +1,53 @@
+{% extends "layouts/app_shell.html" %}
+
+{% block title %}Product Registration | Inventory{% endblock %}
+{% block page_title %}Product Registration{% endblock %}
+{% block page_subtitle %}Create and maintain your product catalog with SKU and costing controls.{% endblock %}
+{% block page_actions %}
+  <a class="btn btn-outline-secondary" href="{% url 'inventory_categories' %}">Categories</a>
+  <a class="btn btn-outline-primary" href="{% url 'inventory_current_stock' %}">Current Stock</a>
+{% endblock %}
+
+{% block content %}
+  <div class="block-card mb-4 fade-in-up">
+    <form method="post" class="row g-3">
+      {% csrf_token %}
+      <div class="col-md-4"><label class="form-label">SKU</label>{{ form.sku }}</div>
+      <div class="col-md-4"><label class="form-label">Product Code</label>{{ form.product_code }}</div>
+      <div class="col-md-4"><label class="form-label">Name</label>{{ form.name }}</div>
+      <div class="col-md-3"><label class="form-label">Category</label>{{ form.category_id }}</div>
+      <div class="col-md-3"><label class="form-label">Barcode</label>{{ form.barcode }}</div>
+      <div class="col-md-2"><label class="form-label">Reorder Level</label>{{ form.reorder_level }}</div>
+      <div class="col-md-2"><label class="form-label">Unit Cost</label>{{ form.unit_cost }}</div>
+      <div class="col-md-2"><label class="form-label">Unit</label>{{ form.unit_of_measure }}</div>
+      {% if form.errors %}
+        <div class="col-12"><div class="alert alert-danger mb-0">{{ form.errors }}</div></div>
+      {% endif %}
+      <div class="col-12"><button type="submit" class="btn btn-primary">Save Product</button></div>
+    </form>
+  </div>
+
+  <div class="block-card fade-in-up">
+    <h2 class="h6">Registered Products</h2>
+    <div class="table-responsive">
+      <table class="table table-enterprise table-sm">
+        <thead><tr><th>Name</th><th>SKU</th><th>Code</th><th>Category</th><th>Barcode</th><th>Reorder</th><th>Cost</th></tr></thead>
+        <tbody>
+          {% for p in products %}
+            <tr>
+              <td>{{ p.name }}</td>
+              <td>{{ p.sku }}</td>
+              <td>{{ p.product_code }}</td>
+              <td>{{ p.category|default:'-' }}</td>
+              <td>{{ p.barcode|default:'-' }}</td>
+              <td>{{ p.reorder_level }}</td>
+              <td>{{ p.unit_cost }}</td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="7" class="text-center text-muted">No products found.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+{% endblock %}

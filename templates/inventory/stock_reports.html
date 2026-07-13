@@ -1,0 +1,81 @@
+{% extends "layouts/app_shell.html" %}
+
+{% block title %}Stock Reports{% endblock %}
+{% block page_title %}Stock Reports{% endblock %}
+{% block page_subtitle %}Visualize inventory performance, valuation, and movement trends for decision-making.{% endblock %}
+{% block page_actions %}
+  <a class="btn btn-outline-primary" href="{% url 'inventory_current_stock' %}">Current Stock</a>
+{% endblock %}
+
+{% block extra_head %}
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% endblock %}
+
+{% block content %}
+  <div class="row g-3 mb-4 fade-in-up">
+    <div class="col-md-3"><article class="stat-card"><div class="kpi-label">Products</div><div class="kpi-value">{{ cards.total_products }}</div></article></div>
+    <div class="col-md-3"><article class="stat-card"><div class="kpi-label">Valuation</div><div class="kpi-value">{{ cards.total_valuation }}</div></article></div>
+    <div class="col-md-3"><article class="stat-card"><div class="kpi-label">Low Stock</div><div class="kpi-value">{{ cards.low_stock_count }}</div></article></div>
+    <div class="col-md-3"><article class="stat-card"><div class="kpi-label">Transfers</div><div class="kpi-value">{{ cards.transfer_count }}</div></article></div>
+  </div>
+
+  <div class="row g-4 fade-in-up">
+    <div class="col-lg-7">
+      <section class="block-card"><h2 class="h6">Valuation by Site</h2><canvas id="valuationChart" height="120"></canvas></section>
+    </div>
+    <div class="col-lg-5">
+      <section class="block-card"><h2 class="h6">Movement Breakdown</h2><canvas id="movementChart" height="120"></canvas></section>
+    </div>
+  </div>
+
+  <div class="block-card mt-4 fade-in-up">
+    <h2 class="h6">Low Stock Alerts</h2>
+    <div class="table-responsive">
+      <table class="table table-enterprise table-sm">
+        <thead><tr><th>Item</th><th>Warehouse</th><th>Qty</th><th>Reorder</th></tr></thead>
+        <tbody>
+          {% for row in reports.low_stock %}
+            <tr><td>{{ row.item }}</td><td>{{ row.warehouse }}</td><td>{{ row.qty_on_hand }}</td><td>{{ row.reorder_level }}</td></tr>
+          {% empty %}
+            <tr><td colspan="4" class="text-center text-muted">No low stock items.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+{% endblock %}
+
+{% block extra_js %}
+  <script>
+    const valuationData = {
+      labels: {{ charts.valuation_by_site.labels|safe }},
+      values: {{ charts.valuation_by_site.values|safe }}
+    };
+
+    new Chart(document.getElementById('valuationChart'), {
+      type: 'bar',
+      data: {
+        labels: valuationData.labels,
+        datasets: [{
+          label: 'Valuation',
+          data: valuationData.values,
+          backgroundColor: ['#0d6efd', '#20c997', '#fd7e14', '#6f42c1', '#198754']
+        }]
+      }
+    });
+
+    const movementLabels = [{% for row in movement_breakdown %}'{{ row.movement_type }}',{% endfor %}];
+    const movementValues = [{% for row in movement_breakdown %}{{ row.total }},{% endfor %}];
+
+    new Chart(document.getElementById('movementChart'), {
+      type: 'doughnut',
+      data: {
+        labels: movementLabels,
+        datasets: [{
+          data: movementValues,
+          backgroundColor: ['#0d6efd', '#dc3545', '#ffc107', '#20c997']
+        }]
+      }
+    });
+  </script>
+{% endblock %}

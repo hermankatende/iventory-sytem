@@ -1,0 +1,10 @@
+from .base import *  # noqa: F401,F403
+
+DEBUG = False
+
+OFFLINE_MODE = False
+BACKUP_STORAGE_PATH = BASE_DIR / "backups"
+NOTIFICATION_BACKEND = "email_or_queue"
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = True
+SECURE_SSL_REDIRECT = True

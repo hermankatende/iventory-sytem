@@ -1,0 +1,36 @@
+{% extends "layouts/app_shell.html" %}
+
+{% block title %}Product Categories | Inventory{% endblock %}
+{% block page_title %}Product Categories{% endblock %}
+{% block page_subtitle %}Structure inventory using clean category definitions for reporting and procurement.{% endblock %}
+{% block page_actions %}
+  <a class="btn btn-outline-primary" href="{% url 'inventory_products' %}">Back to Products</a>
+{% endblock %}
+
+{% block content %}
+  <div class="block-card mb-4 fade-in-up">
+    <form method="post" class="row g-3">
+      {% csrf_token %}
+      <div class="col-md-4"><label class="form-label">Name</label>{{ form.name }}</div>
+      <div class="col-md-6"><label class="form-label">Description</label>{{ form.description }}</div>
+      <div class="col-md-2 d-flex align-items-end"><button class="btn btn-primary w-100" type="submit">Save</button></div>
+      {% if form.errors %}
+        <div class="col-12"><div class="alert alert-danger mb-0">{{ form.errors }}</div></div>
+      {% endif %}
+    </form>
+  </div>
+
+  <div class="block-card fade-in-up">
+    <h2 class="h6">Categories</h2>
+    <ul class="list-group list-group-flush">
+      {% for category in categories %}
+        <li class="list-group-item d-flex justify-content-between align-items-center">
+          <span>{{ category.name }}</span>
+          <small class="text-muted">{{ category.description|default:'No description' }}</small>
+        </li>
+      {% empty %}
+        <li class="list-group-item text-muted">No categories yet.</li>
+      {% endfor %}
+    </ul>
+  </div>
+{% endblock %}

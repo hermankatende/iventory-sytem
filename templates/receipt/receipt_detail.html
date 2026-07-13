@@ -1,0 +1,182 @@
+{% extends "layouts/app_shell.html" %}
+
+{% block title %}Receipt Detail{% endblock %}
+{% block page_title %}Receipt {{ receipt.receipt_number }}{% endblock %}
+{% block page_subtitle %}Number is permanent and cannot be edited. Maintain complete audit-safe updates.{% endblock %}
+{% block page_actions %}
+  <a class="btn btn-outline-secondary" href="{% url 'receipt_list' %}">Back</a>
+  <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#editReceiptModal">Edit Receipt</button>
+{% endblock %}
+
+{% block content %}
+  <div class="row g-4 fade-in-up">
+    <div class="col-lg-7">
+      <div class="block-card mb-3">
+        <h2 class="h6">Receipt Header</h2>
+        <div class="row g-3">
+          <div class="col-md-6"><label class="form-label">Receipt Number</label><input class="form-control" value="{{ receipt.receipt_number }}" disabled></div>
+          <div class="col-md-6"><label class="form-label">Date</label><input class="form-control" value="{{ receipt.receipt_date }}" disabled></div>
+          <div class="col-md-6"><label class="form-label">Supplier</label><input class="form-control" value="{{ receipt.supplier.name }}" disabled></div>
+          <div class="col-md-6"><label class="form-label">Site</label><input class="form-control" value="{{ receipt.warehouse.name }}" disabled></div>
+          <div class="col-md-12"><label class="form-label">Reason For Last Edit</label><textarea class="form-control" rows="2" disabled>{{ receipt.reason_for_edit|default:'-' }}</textarea></div>
+        </div>
+      </div>
+
+      <div class="block-card mb-3">
+        <h2 class="h6">Add / Edit Line</h2>
+        <form method="post" class="row g-2">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="upsert_line">
+          <div class="col-md-2">{{ line_form.line_id }}</div>
+          <div class="col-md-4"><label class="form-label">Item</label>{{ line_form.item }}</div>
+          <div class="col-md-2"><label class="form-label">Quantity</label>{{ line_form.quantity }}</div>
+          <div class="col-md-3"><label class="form-label">Unit Price</label>{{ line_form.unit_price }}</div>
+          <div class="col-md-12"><label class="form-label">Reason For Editing *</label>{{ line_form.reason }}</div>
+          {% if line_form.errors %}<div class="col-12"><div class="alert alert-danger">{{ line_form.errors }}</div></div>{% endif %}
+          <div class="col-12"><button class="btn btn-primary" type="submit">Save Line</button></div>
+        </form>
+
+        <hr>
+        <div class="table-responsive">
+          <table class="table table-enterprise table-sm">
+            <thead><tr><th>Line ID</th><th>Item</th><th>Qty</th><th>Unit Price</th><th>Total</th></tr></thead>
+            <tbody>
+              {% for line in receipt.lines.all %}
+                <tr>
+                  <td>{{ line.id }}</td>
+                  <td>{{ line.item.name }}</td>
+                  <td>{{ line.quantity }}</td>
+                  <td>{{ line.unit_price }}</td>
+                  <td>{{ line.line_total }}</td>
+                </tr>
+              {% empty %}
+                <tr><td colspan="5" class="text-center text-muted">No lines yet.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="block-card">
+        <h2 class="h6">Record Receipt</h2>
+        <p class="text-muted">Recording posts stock-in movements for all lines to the selected warehouse.</p>
+        <form method="post" class="row g-2">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="record_receipt">
+          <div class="col-md-8"><label class="form-label">Reason</label>{{ record_form.reason }}</div>
+          <div class="col-md-4 d-flex align-items-end"><button class="btn btn-success w-100" type="submit" {% if receipt.is_recorded %}disabled{% endif %}>Record</button></div>
+          {% if record_form.errors %}<div class="col-12"><div class="alert alert-danger">{{ record_form.errors }}</div></div>{% endif %}
+        </form>
+      </div>
+    </div>
+
+    <div class="col-lg-5">
+      <div class="block-card mb-3">
+        <h2 class="h6">Receipt Status</h2>
+        <ul class="list-group list-group-flush">
+          <li class="list-group-item d-flex justify-content-between"><span>Supplier</span><strong>{{ receipt.supplier.name }}</strong></li>
+          <li class="list-group-item d-flex justify-content-between"><span>Warehouse</span><strong>{{ receipt.warehouse.name }}</strong></li>
+          <li class="list-group-item d-flex justify-content-between"><span>Source</span><strong>{{ receipt.source_type }}</strong></li>
+          <li class="list-group-item d-flex justify-content-between"><span>Date</span><strong>{{ receipt.receipt_date }}</strong></li>
+          <li class="list-group-item d-flex justify-content-between"><span>Recorded</span><strong>{{ receipt.is_recorded }}</strong></li>
+          <li class="list-group-item d-flex justify-content-between"><span>Total Amount</span><strong>{{ receipt.total_amount }}</strong></li>
+          <li class="list-group-item d-flex justify-content-between"><span>Recorded At</span><strong>{{ receipt.recorded_at|default:'-' }}</strong></li>
+        </ul>
+        {% if receipt.scan_file %}
+          <a class="btn btn-outline-primary btn-sm mt-3" target="_blank" href="{{ receipt.scan_file.url }}">Open Scanned Receipt</a>
+        {% endif %}
+      </div>
+
+      <div class="block-card">
+        <h2 class="h6">Edit Audit Trail</h2>
+        <div class="table-responsive" style="max-height: 420px; overflow: auto;">
+          <table class="table table-enterprise table-sm align-middle">
+            <thead><tr><th>Date</th><th>Editor</th><th>Field</th><th>Old</th><th>New</th><th>Reason</th></tr></thead>
+            <tbody>
+              {% for log in edit_logs %}
+                <tr>
+                  <td>{{ log.edit_date }}</td>
+                  <td>{{ log.editor.username|default:'system' }}</td>
+                  <td>{{ log.field_name }}</td>
+                  <td>{{ log.old_value }}</td>
+                  <td>{{ log.new_value }}</td>
+                  <td>{{ log.reason }}</td>
+                </tr>
+              {% empty %}
+                <tr><td colspan="6" class="text-center text-muted">No edits logged yet.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="editReceiptModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2 class="h6 mb-0">Edit Receipt {{ receipt.receipt_number }}</h2>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <form method="post" enctype="multipart/form-data">
+          <div class="modal-body">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="edit_header">
+            <div class="alert alert-warning">Reason for Editing is mandatory. Receipt Number stays locked and cannot be changed.</div>
+
+            <div class="mb-3">
+              <label class="form-label">Reason for Editing *</label>
+              {{ header_form.reason }}
+            </div>
+
+            <div class="row g-3" id="receiptEditFields" data-locked="1">
+              <div class="col-md-6">
+                <label class="form-label">Receipt Number</label>
+                <input class="form-control" value="{{ receipt.receipt_number }}" disabled>
+              </div>
+              <div class="col-md-6"><label class="form-label">Supplier</label>{{ header_form.supplier }}</div>
+              <div class="col-md-6"><label class="form-label">Site</label>{{ header_form.warehouse }}</div>
+              <div class="col-md-6"><label class="form-label">Source</label>{{ header_form.source_type }}</div>
+              <div class="col-md-6"><label class="form-label">Receipt Date</label>{{ header_form.receipt_date }}</div>
+              <div class="col-md-6"><label class="form-label">Scanned Receipt</label>{{ header_form.scan_file }}</div>
+              <div class="col-12"><label class="form-label">Notes</label>{{ header_form.notes }}</div>
+            </div>
+            {% if header_form.errors %}<div class="mt-3 alert alert-danger">{{ header_form.errors }}</div>{% endif %}
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-primary">Save Receipt Changes</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+{% endblock %}
+
+{% block extra_js %}
+  <script>
+    (() => {
+      const reasonInput = document.getElementById("id_reason");
+      const fieldsContainer = document.getElementById("receiptEditFields");
+      if (!reasonInput || !fieldsContainer) {
+        return;
+      }
+
+      const managedInputs = Array.from(fieldsContainer.querySelectorAll("input, select, textarea"));
+
+      function syncLockState() {
+        const unlocked = Boolean((reasonInput.value || "").trim());
+        managedInputs.forEach((el) => {
+          if (el.id === "id_reason") {
+            return;
+          }
+          el.disabled = !unlocked;
+        });
+      }
+
+      reasonInput.addEventListener("input", syncLockState);
+      syncLockState();
+    })();
+  </script>
+{% endblock %}

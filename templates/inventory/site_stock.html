@@ -1,0 +1,38 @@
+{% extends "layouts/app_shell.html" %}
+
+{% block title %}Site Stock{% endblock %}
+{% block page_title %}Site Stock{% endblock %}
+{% block page_subtitle %}Aggregated stock position calculated from inventory transactions across each site and product.{% endblock %}
+{% block page_actions %}
+  <a class="btn btn-outline-secondary" href="{% url 'inventory_transaction_entry' %}">Stock Transaction</a>
+  <a class="btn btn-outline-primary" href="{% url 'inventory_current_stock' %}">Current Stock</a>
+{% endblock %}
+
+{% block content %}
+  <div class="block-card fade-in-up">
+    <div class="table-responsive">
+      <table class="table table-enterprise table-sm align-middle">
+        <thead>
+          <tr>
+            <th>Site</th>
+            <th>Product Code</th>
+            <th>Product</th>
+            <th>Quantity On Hand</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in rows %}
+            <tr>
+              <td>{{ row.site__name }}</td>
+              <td>{{ row.product__product_code|default:'-' }}</td>
+              <td>{{ row.product__product_name|default:'-' }}</td>
+              <td>{{ row.quantity_on_hand|default:0 }}</td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="4" class="text-center text-muted">No stock rows available yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+{% endblock %}

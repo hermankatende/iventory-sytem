@@ -1,0 +1,46 @@
+{% extends "layouts/app_shell.html" %}
+
+{% block title %}Batch Operations{% endblock %}
+{% block page_title %}Batch Operations{% endblock %}
+{% block page_subtitle %}Process high-volume stock updates in controlled, traceable batches.{% endblock %}
+{% block page_actions %}
+  <a class="btn btn-outline-primary" href="{% url 'inventory_current_stock' %}">Current Stock</a>
+{% endblock %}
+
+{% block content %}
+  <div class="block-card mb-4 fade-in-up">
+    <form method="post" class="row g-3">
+      {% csrf_token %}
+      <div class="col-md-3"><label class="form-label">Operation</label>{{ form.operation_type }}</div>
+      <div class="col-md-9"><label class="form-label">Reason</label>{{ form.reason }}</div>
+      <div class="col-12"><label class="form-label">Operations JSON</label>{{ form.operations_json }}</div>
+      {% if form.errors %}
+        <div class="col-12"><div class="alert alert-danger mb-0">{{ form.errors }}</div></div>
+      {% endif %}
+      <div class="col-12"><button class="btn btn-primary" type="submit">Process Batch</button></div>
+    </form>
+  </div>
+
+  <div class="block-card fade-in-up">
+    <h2 class="h6">Recent Batches</h2>
+    <div class="table-responsive">
+      <table class="table table-enterprise table-sm">
+        <thead><tr><th>Batch ID</th><th>Type</th><th>Status</th><th>Processed</th><th>Total</th><th>Created</th></tr></thead>
+        <tbody>
+          {% for batch in batches %}
+            <tr>
+              <td>{{ batch.batch_id }}</td>
+              <td>{{ batch.operation_type }}</td>
+              <td>{{ batch.status }}</td>
+              <td>{{ batch.processed_lines }}</td>
+              <td>{{ batch.total_lines }}</td>
+              <td>{{ batch.created_at }}</td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="6" class="text-center text-muted">No batches found.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+{% endblock %}

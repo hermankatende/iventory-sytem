@@ -1,0 +1,200 @@
+{% extends "layouts/app_shell.html" %}
+
+{% block title %}Create Receipt{% endblock %}
+{% block page_title %}Create Receipt{% endblock %}
+{% block page_subtitle %}Capture supplier receipt documents with immutable numbering and auditable product lines.{% endblock %}
+{% block page_actions %}
+  <a class="btn btn-outline-secondary" href="{% url 'receipt_list' %}">Back to List</a>
+{% endblock %}
+
+{% block extra_head %}
+  <style>
+    .receipt-warning {
+      border-left: 4px solid #f59e0b;
+      background: #fff7e6;
+      padding: 0.85rem 1rem;
+      border-radius: 12px;
+      color: #7c2d12;
+      font-size: 0.92rem;
+    }
+    .line-table input,
+    .line-table select {
+      min-width: 120px;
+    }
+    .line-total {
+      font-weight: 700;
+      color: #0f766e;
+    }
+  </style>
+{% endblock %}
+
+{% block content %}
+  <div class="block-card fade-in-up">
+    <form id="receiptCreateForm" method="post" enctype="multipart/form-data" class="row g-3">
+      {% csrf_token %}
+
+      <div class="col-12">
+        <div class="receipt-warning">
+          Receipt Number is copied from the supplier paper receipt and cannot be changed after save.
+        </div>
+      </div>
+
+      <div class="col-md-3"><label class="form-label">Site</label>{{ form.warehouse }}</div>
+      <div class="col-md-3"><label class="form-label">Supplier</label>{{ form.supplier }}</div>
+      <div class="col-md-3"><label class="form-label">Receipt Number</label>{{ form.receipt_number }}</div>
+      <div class="col-md-3"><label class="form-label">Date</label>{{ form.receipt_date }}</div>
+
+      <div class="col-md-4"><label class="form-label">Source</label>{{ form.source_type }}</div>
+      <div class="col-md-4"><label class="form-label">Attach File</label>{{ form.scan_file }}</div>
+      <div class="col-md-4"><label class="form-label">Entered By</label><input class="form-control" value="{{ entered_by.username }}" disabled></div>
+      <div class="col-12"><label class="form-label">Notes</label>{{ form.notes }}</div>
+
+      <div class="col-12">
+        <div class="d-flex align-items-center justify-content-between mb-2">
+          <label class="form-label mb-0">Receipt Items</label>
+          <button id="addLineRow" type="button" class="btn btn-sm btn-outline-primary">Add Row</button>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-enterprise table-sm line-table" id="receiptLinesTable">
+            <thead>
+              <tr>
+                <th style="min-width: 260px;">Product</th>
+                <th>Unit</th>
+                <th>Qty</th>
+                <th>Unit Price</th>
+                <th>Total</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="receiptLinesBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="col-md-6">
+        <label class="form-label">Grand Total</label>
+        <input id="grandTotalDisplay" class="form-control" disabled value="0.00">
+      </div>
+      <div class="col-md-6 d-flex align-items-end">
+        <div class="form-text">Unit Price auto-populates from latest Product Price history and remains editable for exception capture.</div>
+      </div>
+
+      <div class="d-none">{{ form.lines_json }}</div>
+
+      {% if form.errors %}
+        <div class="col-12"><div class="alert alert-danger mb-0">{{ form.errors }}</div></div>
+      {% endif %}
+      <div class="col-12"><button class="btn btn-primary" type="submit">Create Receipt</button></div>
+    </form>
+  </div>
+{% endblock %}
+
+{% block extra_js %}
+  <script>
+    (() => {
+      const products = {{ products_json|safe }};
+      const linesBody = document.getElementById("receiptLinesBody");
+      const addButton = document.getElementById("addLineRow");
+      const linesJsonInput = document.getElementById("id_lines_json");
+      const grandTotalDisplay = document.getElementById("grandTotalDisplay");
+      const form = document.getElementById("receiptCreateForm");
+
+      function money(n) {
+        return Number(n || 0).toFixed(2);
+      }
+
+      function productOptions() {
+        return products.map((p) => `<option value="${p.id}">${p.label}</option>`).join("");
+      }
+
+      function updateRow(row) {
+        const productSelect = row.querySelector(".line-product");
+        const quantityInput = row.querySelector(".line-qty");
+        const unitInput = row.querySelector(".line-unit");
+        const priceInput = row.querySelector(".line-price");
+        const totalCell = row.querySelector(".line-total");
+
+        const product = products.find((x) => String(x.id) === String(productSelect.value));
+        if (product) {
+          unitInput.value = product.unit || "-";
+          if (!priceInput.dataset.touched) {
+            priceInput.value = money(product.latest_price);
+          }
+        }
+        const qty = Number(quantityInput.value || 0);
+        const price = Number(priceInput.value || 0);
+        totalCell.textContent = money(qty * price);
+      }
+
+      function updateGrandTotal() {
+        let total = 0;
+        linesBody.querySelectorAll("tr").forEach((row) => {
+          const qty = Number(row.querySelector(".line-qty").value || 0);
+          const price = Number(row.querySelector(".line-price").value || 0);
+          total += qty * price;
+        });
+        grandTotalDisplay.value = money(total);
+      }
+
+      function syncHiddenLinesJson() {
+        const rows = [];
+        linesBody.querySelectorAll("tr").forEach((row) => {
+          const productSelect = row.querySelector(".line-product");
+          const quantityInput = row.querySelector(".line-qty");
+          const priceInput = row.querySelector(".line-price");
+          const product = products.find((x) => String(x.id) === String(productSelect.value));
+          if (!product) {
+            return;
+          }
+          rows.push({
+            product_id: Number(product.id),
+            item_id: Number(product.item_id),
+            quantity: Number(quantityInput.value || 0),
+            unit_price: Number(priceInput.value || 0),
+          });
+        });
+        linesJsonInput.value = JSON.stringify(rows);
+      }
+
+      function onRowChange(row) {
+        updateRow(row);
+        updateGrandTotal();
+        syncHiddenLinesJson();
+      }
+
+      function addRow() {
+        const row = document.createElement("tr");
+        row.innerHTML = `
+          <td><select class="form-select form-select-sm line-product">${productOptions()}</select></td>
+          <td><input class="form-control form-control-sm line-unit" disabled></td>
+          <td><input type="number" min="1" value="1" class="form-control form-control-sm line-qty"></td>
+          <td><input type="number" min="0" step="0.01" value="0" class="form-control form-control-sm line-price"></td>
+          <td class="line-total">0.00</td>
+          <td><button type="button" class="btn btn-sm btn-outline-danger line-remove">Remove</button></td>
+        `;
+        linesBody.appendChild(row);
+
+        row.querySelector(".line-product").addEventListener("change", () => onRowChange(row));
+        row.querySelector(".line-qty").addEventListener("input", () => onRowChange(row));
+        row.querySelector(".line-price").addEventListener("input", (event) => {
+          event.target.dataset.touched = "1";
+          onRowChange(row);
+        });
+        row.querySelector(".line-remove").addEventListener("click", () => {
+          row.remove();
+          updateGrandTotal();
+          syncHiddenLinesJson();
+        });
+
+        onRowChange(row);
+      }
+
+      addButton.addEventListener("click", addRow);
+      form.addEventListener("submit", () => {
+        syncHiddenLinesJson();
+      });
+
+      addRow();
+    })();
+  </script>
+{% endblock %}

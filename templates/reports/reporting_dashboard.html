@@ -1,0 +1,362 @@
+{% extends "layouts/app_shell.html" %}
+
+{% block title %}Reporting{% endblock %}
+{% block page_title %}Accountant Reporting{% endblock %}
+{% block page_subtitle %}Track expenses, supplier balances, and site performance with export-ready analytics.{% endblock %}
+{% block page_actions %}
+  <a class="btn btn-outline-primary" href="{% url 'reporting_export_csv' %}?{{ request.GET.urlencode }}">Export CSV</a>
+  <a class="btn btn-outline-primary" href="{% url 'reporting_export_excel' %}?{{ request.GET.urlencode }}">Export Excel</a>
+  <a class="btn btn-outline-secondary" href="{% url 'reporting_export_pdf' %}?{{ request.GET.urlencode }}">Export PDF</a>
+  <a class="btn btn-primary" target="_blank" href="{% url 'reporting_print' %}?{{ request.GET.urlencode }}">Print</a>
+{% endblock %}
+
+{% block extra_head %}
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    .report-nav {
+      gap: 0.5rem;
+      border-bottom: 1px solid rgba(15, 23, 42, 0.12);
+      margin-bottom: 1rem;
+      padding-bottom: 0.5rem;
+      overflow-x: auto;
+      white-space: nowrap;
+    }
+
+    .report-nav a {
+      text-decoration: none;
+      color: #334155;
+      border: 1px solid transparent;
+      border-radius: 999px;
+      padding: 0.35rem 0.85rem;
+      font-weight: 600;
+      font-size: 0.85rem;
+    }
+
+    .report-nav a.active {
+      color: #ffffff;
+      background: linear-gradient(120deg, #0f766e, #2563eb);
+      border-color: transparent;
+    }
+
+    .report-table-wrap {
+      max-height: 420px;
+      overflow: auto;
+    }
+
+    .tab-section {
+      display: none;
+    }
+
+    .tab-section.active {
+      display: block;
+      animation: fadeInUp 0.25s ease;
+    }
+
+    .period-switch {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 0.75rem;
+      flex-wrap: wrap;
+    }
+
+    .period-switch .btn {
+      min-width: 95px;
+    }
+
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(4px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+  </style>
+{% endblock %}
+
+{% block content %}
+  <div class="block-card mb-4 fade-in-up">
+    <form method="get" class="row g-2 align-items-end">
+      <input type="hidden" name="tab" value="{{ active_tab }}">
+      <div class="col-md-2">
+        <label class="form-label">Period</label>
+        {{ form.period }}
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">Start Date</label>
+        {{ form.start_date }}
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">End Date</label>
+        {{ form.end_date }}
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">Site</label>
+        {{ form.site }}
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">Supplier</label>
+        {{ form.supplier }}
+      </div>
+      <div class="col-md-2">
+        <button class="btn btn-primary w-100" type="submit">Apply Filters</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="block-card fade-in-up">
+    <div class="report-nav d-flex">
+      <a class="{% if active_tab == 'expenses' %}active{% endif %}" href="?tab=expenses&{{ request.GET.urlencode }}">Expenses</a>
+      <a class="{% if active_tab == 'supplier' %}active{% endif %}" href="?tab=supplier&{{ request.GET.urlencode }}">Supplier Balances</a>
+      <a class="{% if active_tab == 'sites' %}active{% endif %}" href="?tab=sites&{{ request.GET.urlencode }}">Site Summary</a>
+    </div>
+
+    <section id="tab-expenses" class="tab-section {% if active_tab == 'expenses' %}active{% endif %}">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <h2 class="h6 mb-0">Expenses Analytics</h2>
+        <span class="badge text-bg-info">{{ bundle.expenses_monthly.count }} monthly rows</span>
+      </div>
+
+      <div class="period-switch">
+        <button type="button" class="btn btn-outline-secondary period-btn" data-period="daily">Daily</button>
+        <button type="button" class="btn btn-outline-secondary period-btn" data-period="weekly">Weekly</button>
+        <button type="button" class="btn btn-outline-secondary period-btn" data-period="monthly">Monthly</button>
+      </div>
+
+      <canvas id="expensesTrendChart" height="95" class="mb-3"></canvas>
+
+      <div class="report-table-wrap">
+        <table class="table table-enterprise table-sm" id="expensesTable">
+          <thead>
+            <tr>
+              <th>Period</th>
+              <th>Site</th>
+              <th>Category</th>
+              <th>Total</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="tab-supplier" class="tab-section {% if active_tab == 'supplier' %}active{% endif %}">
+      <h2 class="h6">Supplier Balances</h2>
+      <div class="report-table-wrap mb-3">
+        <table class="table table-enterprise table-sm">
+          <thead>
+            <tr>
+              <th>Supplier</th>
+              <th>Receipts</th>
+              <th>Payments</th>
+              <th>Outstanding</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in bundle.outstanding_supplier_balances.rows %}
+              <tr>
+                <td>{{ row.supplier }}</td>
+                <td>{{ row.receipts_total }}</td>
+                <td>{{ row.payments_total }}</td>
+                <td>{{ row.outstanding_balance }}</td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="4" class="text-muted">No supplier balance rows in current scope.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <h2 class="h6">Top Products Bought</h2>
+      <div class="report-table-wrap">
+        <table class="table table-enterprise table-sm">
+          <thead>
+            <tr>
+              <th>Product</th>
+              <th>Quantity</th>
+              <th>Total Spend</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in bundle.products_bought.rows %}
+              <tr>
+                <td>{{ row.product_name }}</td>
+                <td>{{ row.quantity }}</td>
+                <td>{{ row.total_spend }}</td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="3" class="text-muted">No product purchasing rows found.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="tab-sites" class="tab-section {% if active_tab == 'sites' %}active{% endif %}">
+      <h2 class="h6">Site Expense Summary</h2>
+      <div class="report-table-wrap mb-3">
+        <table class="table table-enterprise table-sm">
+          <thead>
+            <tr>
+              <th>Site</th>
+              <th>Total Expense</th>
+              <th>Entries</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in bundle.site_expense_summary.rows %}
+              <tr>
+                <td>{{ row.site__name }}</td>
+                <td>{{ row.total_expense }}</td>
+                <td>{{ row.entries }}</td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="3" class="text-muted">No site summary rows found.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <h2 class="h6">Receipt Edit History</h2>
+      <div class="report-table-wrap">
+        <table class="table table-enterprise table-sm">
+          <thead>
+            <tr>
+              <th>Receipt</th>
+              <th>Field</th>
+              <th>Old Value</th>
+              <th>New Value</th>
+              <th>Editor</th>
+              <th>Time</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in bundle.receipt_history_log.rows %}
+              <tr>
+                <td>{{ row.receipt__receipt_number }}</td>
+                <td>{{ row.field_name }}</td>
+                <td>{{ row.old_value }}</td>
+                <td>{{ row.new_value }}</td>
+                <td>{{ row.editor__username }}</td>
+                <td>{{ row.edited_at }}</td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="6" class="text-muted">No receipt history changes in selected range.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+{% endblock %}
+
+{% block extra_js %}
+  {{ bundle.expenses_daily.rows|json_script:"daily-rows-json" }}
+  {{ bundle.expenses_weekly.rows|json_script:"weekly-rows-json" }}
+  {{ bundle.expenses_monthly.rows|json_script:"monthly-rows-json" }}
+  {{ daily_chart.labels|json_script:"daily-labels-json" }}
+  {{ daily_chart.values|json_script:"daily-values-json" }}
+  {{ weekly_chart.labels|json_script:"weekly-labels-json" }}
+  {{ weekly_chart.values|json_script:"weekly-values-json" }}
+  {{ monthly_chart.labels|json_script:"monthly-labels-json" }}
+  {{ monthly_chart.values|json_script:"monthly-values-json" }}
+
+  <script>
+    const dailyRows = JSON.parse(document.getElementById('daily-rows-json').textContent);
+    const weeklyRows = JSON.parse(document.getElementById('weekly-rows-json').textContent);
+    const monthlyRows = JSON.parse(document.getElementById('monthly-rows-json').textContent);
+
+    const chartDataMap = {
+      daily: {
+        labels: JSON.parse(document.getElementById('daily-labels-json').textContent),
+        values: JSON.parse(document.getElementById('daily-values-json').textContent),
+        rows: dailyRows,
+      },
+      weekly: {
+        labels: JSON.parse(document.getElementById('weekly-labels-json').textContent),
+        values: JSON.parse(document.getElementById('weekly-values-json').textContent),
+        rows: weeklyRows,
+      },
+      monthly: {
+        labels: JSON.parse(document.getElementById('monthly-labels-json').textContent),
+        values: JSON.parse(document.getElementById('monthly-values-json').textContent),
+        rows: monthlyRows,
+      },
+    };
+
+    const chartCtx = document.getElementById('expensesTrendChart');
+    let expensesTrendChart = null;
+
+    function renderTable(rows) {
+      const tbody = document.querySelector('#expensesTable tbody');
+      tbody.innerHTML = '';
+      if (!rows.length) {
+        tbody.innerHTML = '<tr><td colspan="4" class="text-muted">No expense data for this period.</td></tr>';
+        return;
+      }
+
+      rows.forEach((row) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${row.period ?? ''}</td>
+          <td>${row.site ?? ''}</td>
+          <td>${row.category ?? ''}</td>
+          <td>${row.total ?? 0}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function renderChart(period) {
+      const payload = chartDataMap[period] || chartDataMap.monthly;
+      renderTable(payload.rows || []);
+
+      if (expensesTrendChart) {
+        expensesTrendChart.destroy();
+      }
+
+      expensesTrendChart = new Chart(chartCtx, {
+        type: 'line',
+        data: {
+          labels: payload.labels,
+          datasets: [{
+            label: `${period.charAt(0).toUpperCase() + period.slice(1)} Expense Total`,
+            data: payload.values,
+            borderColor: '#0f766e',
+            backgroundColor: 'rgba(15,118,110,0.15)',
+            fill: true,
+            tension: 0.28,
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: true } },
+          scales: {
+            y: { beginAtZero: true }
+          }
+        }
+      });
+    }
+
+    document.querySelectorAll('.period-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.period-btn').forEach((el) => el.classList.remove('btn-primary'));
+        document.querySelectorAll('.period-btn').forEach((el) => el.classList.add('btn-outline-secondary'));
+        btn.classList.remove('btn-outline-secondary');
+        btn.classList.add('btn-primary');
+        renderChart(btn.dataset.period);
+      });
+    });
+
+    const initialPeriod = '{{ bundle.period }}' || 'monthly';
+    const initialBtn = document.querySelector(`.period-btn[data-period='${initialPeriod}']`) || document.querySelector(".period-btn[data-period='monthly']");
+    if (initialBtn) {
+      initialBtn.classList.remove('btn-outline-secondary');
+      initialBtn.classList.add('btn-primary');
+      renderChart(initialBtn.dataset.period);
+    }
+  </script>
+{% endblock %}

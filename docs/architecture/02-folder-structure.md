@@ -1,0 +1,51 @@
+# Folder Structure
+
+```text
+construction_inventory_system/
+  manage.py
+  config/
+    settings/
+      base.py
+      offline.py
+      online.py
+    urls.py
+    wsgi.py
+    asgi.py
+    logging.py
+  src/
+    presentation/
+      web/
+      api/
+    application/
+      common/
+      inventory/
+      suppliers/
+      procurement/
+      reporting/
+      notifications/
+      backup_restore/
+      audit/
+    domain/
+      common/
+      inventory/
+      suppliers/
+      procurement/
+    infrastructure/
+      persistence/
+      integrations/
+      security/
+      jobs/
+    shared/
+      constants/
+      utils/
+      validators/
+  tests/
+    unit/
+    integration/
+    e2e/
+  scripts/
+    backup/
+    restore/
+  docs/
+    architecture/
+```

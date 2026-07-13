@@ -1,0 +1,35 @@
+{% extends "layouts/app_shell.html" %}
+
+{% block title %}Inventory History{% endblock %}
+{% block page_title %}Inventory History{% endblock %}
+{% block page_subtitle %}Track complete stock movement audit records across warehouses and transactions.{% endblock %}
+{% block page_actions %}
+  <a class="btn btn-outline-primary" href="{% url 'inventory_current_stock' %}">Back to Stock</a>
+{% endblock %}
+
+{% block content %}
+  <div class="block-card fade-in-up">
+    <div class="table-responsive">
+      <table class="table table-enterprise table-sm">
+        <thead><tr><th>Date</th><th>Item</th><th>Warehouse</th><th>Type</th><th>Delta</th><th>Ref</th><th>Reason</th><th>Source</th><th>Destination</th></tr></thead>
+        <tbody>
+          {% for row in history %}
+            <tr>
+              <td>{{ row.created_at }}</td>
+              <td>{{ row.item }}</td>
+              <td>{{ row.warehouse }}</td>
+              <td>{{ row.movement_type }}</td>
+              <td>{{ row.delta }}</td>
+              <td>{{ row.reference|default:'-' }}</td>
+              <td>{{ row.reason }}</td>
+              <td>{{ row.source_warehouse|default:'-' }}</td>
+              <td>{{ row.destination_warehouse|default:'-' }}</td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="9" class="text-center text-muted">No history found.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+{% endblock %}

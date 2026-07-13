@@ -1,0 +1,173 @@
+{% extends "layouts/app_shell.html" %}
+
+{% block title %}Create Payment{% endblock %}
+{% block page_title %}New Payment{% endblock %}
+{% block page_subtitle %}Enter the supplier payment header, then review the read-only transaction grid before submitting.{% endblock %}
+
+{% block content %}
+  <section class="app-page-hero p-4 p-lg-5 fade-in-up mb-4">
+    <div class="d-flex flex-column flex-lg-row justify-content-between gap-3 align-items-start align-items-lg-center">
+      <div>
+        <div class="hero-kicker mb-2">Supplier settlement</div>
+        <h2 class="h3 mb-2">New Payment</h2>
+        <p class="mb-0 text-secondary">Select a supplier and the outstanding receipts appear immediately below so the payment can be reviewed against actual balances.</p>
+      </div>
+      <div class="payment-grid-note px-3 py-2 small text-secondary">
+        The bottom grid is read-only and auto-calculates the allocations from oldest receipts first.
+      </div>
+    </div>
+  </section>
+
+  <div class="block-card fade-in-up">
+    <form id="paymentForm" method="post" class="row g-3">
+      {% csrf_token %}
+
+      <div class="col-lg-3">
+        <label class="form-label">Supplier</label>
+        {{ form.supplier }}
+      </div>
+      <div class="col-lg-2">
+        <label class="form-label">Transaction Date</label>
+        {{ form.payment_date }}
+      </div>
+      <div class="col-lg-2">
+        <label class="form-label">Amount Paid</label>
+        {{ form.amount }}
+      </div>
+      <div class="col-lg-3">
+        <label class="form-label">Description</label>
+        {{ form.description }}
+      </div>
+      <div class="col-lg-2">
+        <label class="form-label">Payment Method</label>
+        {{ form.method }}
+      </div>
+
+      <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <h2 class="h6 mb-0">Supplier Transaction Grid</h2>
+          <div class="small text-secondary">Updates as soon as a supplier is selected.</div>
+        </div>
+
+        <div class="table-responsive">
+          <table class="table table-enterprise table-sm align-middle" id="allocationTable">
+            <thead>
+              <tr>
+                <th>Transaction Date</th>
+                <th>Invoice No</th>
+                <th>Purchase Total</th>
+                <th>Payment Total</th>
+                <th>Balance Outstanding</th>
+              </tr>
+            </thead>
+            <tbody id="allocationRows"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="col-md-4">
+        <label class="form-label">Total Allocated</label>
+        <input id="allocatedTotalDisplay" class="form-control" disabled value="0.00">
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">Unallocated Balance</label>
+        <input id="unallocatedDisplay" class="form-control" disabled value="0.00">
+      </div>
+      <div class="col-md-4 d-flex align-items-end">
+        <div class="form-text">The grid is read-only; allocations are calculated automatically from oldest outstanding receipts first.</div>
+      </div>
+
+      <div class="d-none">{{ form.allocations_json }}</div>
+      {% if form.errors %}
+        <div class="col-12"><div class="alert alert-danger mb-0">{{ form.errors }}</div></div>
+      {% endif %}
+      <div class="col-12"><button class="btn btn-primary" type="submit">Submit Payment</button></div>
+    </form>
+  </div>
+{% endblock %}
+
+{% block extra_js %}
+  <script>
+    (() => {
+      const outstandingRows = {{ outstanding_rows_json|safe }};
+      const supplierSelect = document.getElementById("id_supplier");
+      const amountInput = document.getElementById("id_amount");
+      const allocationsInput = document.getElementById("id_allocations_json");
+      const allocationRows = document.getElementById("allocationRows");
+      const allocatedTotalDisplay = document.getElementById("allocatedTotalDisplay");
+      const unallocatedDisplay = document.getElementById("unallocatedDisplay");
+      const form = document.getElementById("paymentForm");
+
+      function m(value) {
+        return Number(value || 0);
+      }
+
+      function f(value) {
+        return m(value).toFixed(2);
+      }
+
+      function updateSummary(rows) {
+        const paymentAmount = m(amountInput.value);
+        let allocated = 0;
+        const payload = [];
+
+        rows.forEach((row) => {
+          const remaining = m(row.dataset.outstanding);
+          const allocation = Math.min(Math.max(paymentAmount - allocated, 0), remaining);
+          row.querySelector(".payment-total").textContent = f(allocation);
+          row.querySelector(".balance-after").textContent = f(remaining - allocation);
+          allocated += allocation;
+
+          if (allocation > 0) {
+            payload.push({ receipt_id: Number(row.dataset.receiptId), amount_allocated: allocation });
+          }
+        });
+
+        allocatedTotalDisplay.value = f(allocated);
+        unallocatedDisplay.value = f(paymentAmount - allocated);
+        allocationsInput.value = JSON.stringify(payload);
+      }
+
+      function renderRows(rows) {
+        allocationRows.innerHTML = "";
+        rows.forEach((entry) => {
+          const tr = document.createElement("tr");
+          tr.dataset.receiptId = entry.receipt_id;
+          tr.dataset.outstanding = entry.balance_outstanding;
+          tr.innerHTML = `
+            <td>${entry.transaction_date}</td>
+            <td>${entry.invoice_no}</td>
+            <td>${f(entry.purchase_total)}</td>
+            <td class="payment-total">0.00</td>
+            <td class="balance-after">${f(entry.balance_outstanding)}</td>
+          `;
+          allocationRows.appendChild(tr);
+        });
+        updateSummary(Array.from(allocationRows.querySelectorAll("tr")));
+      }
+
+      function loadSupplierRows() {
+        const supplierId = supplierSelect.value;
+        if (!supplierId) {
+          renderRows([]);
+          return;
+        }
+
+        fetch(`/payments/outstanding/?supplier_id=${supplierId}`)
+          .then((response) => response.json())
+          .then((data) => renderRows(data.rows || []))
+          .catch(() => renderRows([]));
+      }
+
+      supplierSelect.addEventListener("change", loadSupplierRows);
+      amountInput.addEventListener("input", () => updateSummary(Array.from(allocationRows.querySelectorAll("tr"))));
+      form.addEventListener("submit", () => updateSummary(Array.from(allocationRows.querySelectorAll("tr"))));
+
+      if (outstandingRows.length) {
+        renderRows(outstandingRows);
+      } else {
+        loadSupplierRows();
+      }
+    })();
+  </script>
+{% endblock %}

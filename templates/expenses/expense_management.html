@@ -1,0 +1,90 @@
+{% extends "layouts/app_shell.html" %}
+
+{% block title %}Expense Management{% endblock %}
+{% block page_title %}Expense Management{% endblock %}
+{% block page_subtitle %}Capture operational spending with trend analysis and document attachments.{% endblock %}
+{% block page_actions %}
+  <a class="btn btn-outline-primary" href="{% url 'reporting_dashboard' %}?report_type=expenses">Open Reports</a>
+{% endblock %}
+
+{% block extra_head %}
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% endblock %}
+
+{% block content %}
+  <div class="block-card mb-4 fade-in-up">
+    <h2 class="h6">Record Expense</h2>
+    <form method="post" enctype="multipart/form-data" class="row g-3">
+      {% csrf_token %}
+      <div class="col-md-4"><label class="form-label">Category</label>{{ create_form.category }}</div>
+      <div class="col-md-4"><label class="form-label">Site</label>{{ create_form.site }}</div>
+      <div class="col-md-4"><label class="form-label">Supplier</label>{{ create_form.supplier }}</div>
+      <div class="col-md-3"><label class="form-label">Date</label>{{ create_form.date }}</div>
+      <div class="col-md-3"><label class="form-label">Amount</label>{{ create_form.amount }}</div>
+      <div class="col-md-6"><label class="form-label">Attachment</label>{{ create_form.attachment }}</div>
+      <div class="col-12"><label class="form-label">Description</label>{{ create_form.description }}</div>
+      {% if create_form.errors %}<div class="col-12"><div class="alert alert-danger mb-0">{{ create_form.errors }}</div></div>{% endif %}
+      <div class="col-12"><button class="btn btn-primary" type="submit">Save Expense</button></div>
+    </form>
+  </div>
+
+  <div class="block-card mb-4 fade-in-up">
+    <h2 class="h6">Filters</h2>
+    <form method="get" class="row g-2">
+      <div class="col-md-2">{{ filter_form.start_date }}</div>
+      <div class="col-md-2">{{ filter_form.end_date }}</div>
+      <div class="col-md-3">{{ filter_form.site }}</div>
+      <div class="col-md-3">{{ filter_form.supplier }}</div>
+      <div class="col-md-2">{{ filter_form.category }}</div>
+      <div class="col-12"><button class="btn btn-outline-primary" type="submit">Apply Filters</button></div>
+    </form>
+  </div>
+
+  <div class="row g-3 mb-4 fade-in-up">
+    <div class="col-lg-6"><section class="block-card"><h2 class="h6">Monthly Totals</h2><canvas id="monthlyChart" height="120"></canvas></section></div>
+    <div class="col-lg-6"><section class="block-card"><h2 class="h6">Yearly Totals</h2><canvas id="yearlyChart" height="120"></canvas></section></div>
+  </div>
+
+  <div class="block-card fade-in-up">
+    <h2 class="h6">Expenses</h2>
+    <div class="table-responsive">
+      <table class="table table-enterprise table-sm">
+        <thead><tr><th>Date</th><th>Category</th><th>Site</th><th>Supplier</th><th>Amount</th><th>Description</th><th>Attachment</th></tr></thead>
+        <tbody>
+          {% for e in expenses %}
+            <tr>
+              <td>{{ e.date }}</td>
+              <td>{{ e.category.name }}</td>
+              <td>{{ e.site.name }}</td>
+              <td>{{ e.supplier.name|default:'-' }}</td>
+              <td>{{ e.amount }}</td>
+              <td>{{ e.description|default:'-' }}</td>
+              <td>{% if e.attachment %}<a href="{{ e.attachment.url }}" target="_blank">View</a>{% else %}-{% endif %}</td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="7" class="text-center text-muted">No expenses found.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+{% endblock %}
+
+{% block extra_js %}
+  <script>
+    const monthlyLabels = [{% for row in monthly_rows %}'{{ row.year }}-{{ row.month }}',{% endfor %}];
+    const monthlyValues = [{% for row in monthly_rows %}{{ row.total }},{% endfor %}];
+    const yearlyLabels = [{% for row in yearly_rows %}'{{ row.year }}',{% endfor %}];
+    const yearlyValues = [{% for row in yearly_rows %}{{ row.total }},{% endfor %}];
+
+    new Chart(document.getElementById('monthlyChart'), {
+      type: 'bar',
+      data: { labels: monthlyLabels, datasets: [{ label: 'Monthly', data: monthlyValues, backgroundColor: '#0d6efd' }] }
+    });
+
+    new Chart(document.getElementById('yearlyChart'), {
+      type: 'line',
+      data: { labels: yearlyLabels, datasets: [{ label: 'Yearly', data: yearlyValues, borderColor: '#198754', backgroundColor: 'rgba(25,135,84,0.15)', fill: true }] }
+    });
+  </script>
+{% endblock %}

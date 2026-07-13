@@ -1,0 +1,70 @@
+{% extends "layouts/app_shell.html" %}
+
+{% block title %}Supplier Ledger{% endblock %}
+{% block page_title %}Supplier Ledger{% endblock %}
+{% block page_subtitle %}Combined receipt and payment history in a single chronological list, similar to the Access transaction view.{% endblock %}
+{% block page_actions %}
+  <a class="btn btn-outline-secondary" href="{% url 'reporting_dashboard' %}">Reporting Dashboard</a>
+  <a class="btn btn-outline-primary" href="{% url 'payment_create' %}">New Payment</a>
+{% endblock %}
+
+{% block content %}
+  <div class="block-card fade-in-up mb-4">
+    <form method="get" class="row g-3 align-items-end">
+      <div class="col-md-4">
+        <label class="form-label">Supplier</label>
+        <select name="supplier_id" class="form-select">
+          <option value="">All suppliers</option>
+          {% for supplier in suppliers %}
+            <option value="{{ supplier.id }}" {% if selected_supplier_id == supplier.id %}selected{% endif %}>{{ supplier.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">Site</label>
+        <select name="site_id" class="form-select">
+          <option value="">All sites</option>
+          {% for site in sites %}
+            <option value="{{ site.id }}" {% if selected_site_id == site.id %}selected{% endif %}>{{ site.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-4">
+        <button class="btn btn-primary w-100" type="submit">Apply Filter</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="block-card fade-in-up">
+    <div class="table-responsive">
+      <table class="table table-enterprise table-sm align-middle">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Type</th>
+            <th>Invoice No</th>
+            <th>Purchase Total</th>
+            <th>Payment Total</th>
+            <th>Balance Outstanding</th>
+            <th>Supplier</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in rows %}
+            <tr>
+              <td>{{ row.transaction_date }}</td>
+              <td>{% if row.row_type == 'DEBIT' %}<span class="badge text-bg-danger">Debit</span>{% else %}<span class="badge text-bg-success">Credit</span>{% endif %}</td>
+              <td>{{ row.invoice_no|default:'-' }}</td>
+              <td>{{ row.purchase_total|default:0 }}</td>
+              <td>{{ row.payment_total|default:0 }}</td>
+              <td>{{ row.balance_outstanding|default:0 }}</td>
+              <td>{{ row.supplier_name|default:'-' }}</td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="7" class="text-center text-muted">Select a supplier to view the ledger.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+{% endblock %}

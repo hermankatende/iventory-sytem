@@ -1,0 +1,63 @@
+{% extends "layouts/app_shell.html" %}
+
+{% block title %}User Management{% endblock %}
+{% block page_title %}Admin Tools{% endblock %}
+{% block page_subtitle %}Manage user accounts, group roles, and access control.{% endblock %}
+{% block page_actions %}
+  <a class="btn btn-outline-secondary" href="{% url 'login_history' %}">Recent Logins</a>
+  <a class="btn btn-outline-secondary" href="{% url 'security_activity' %}">Security Activity</a>
+{% endblock %}
+
+{% block content %}
+  <div class="block-card fade-in-up">
+    <div class="table-responsive">
+      <table class="table table-enterprise table-sm align-middle">
+        <thead>
+          <tr>
+            <th>Username</th>
+            <th>Name</th>
+            <th>Email</th>
+            <th>Roles</th>
+            <th>Status</th>
+            <th class="text-end">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for account in users %}
+            <tr>
+              <td>{{ account.username }}</td>
+              <td>{{ account.get_full_name|default:'-' }}</td>
+              <td>{{ account.email|default:'-' }}</td>
+              <td>
+                {% for role in account.groups.all %}
+                  <span class="badge text-bg-secondary me-1">{{ role.name }}</span>
+                {% empty %}
+                  <span class="text-muted">No role</span>
+                {% endfor %}
+              </td>
+              <td>
+                {% if account.is_active %}
+                  <span class="badge text-bg-success">Active</span>
+                {% else %}
+                  <span class="badge text-bg-danger">Inactive</span>
+                {% endif %}
+              </td>
+              <td class="text-end">
+                {% if account.id != request.user.id %}
+                  <form method="post" action="{% url 'delete_user' account.id %}" onsubmit="return confirm('Delete {{ account.username }}? This cannot be undone.');">
+                    {% csrf_token %}
+                    <button class="btn btn-sm btn-outline-danger" type="submit">Delete</button>
+                  </form>
+                {% else %}
+                  <span class="text-muted">Current user</span>
+                {% endif %}
+              </td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="6" class="text-muted">No users found.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+{% endblock %}

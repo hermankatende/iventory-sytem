@@ -1,0 +1,46 @@
+{% extends "layouts/app_shell.html" %}
+
+{% block title %}Receipts{% endblock %}
+{% block page_title %}Receipt Management{% endblock %}
+{% block page_subtitle %}Control material intake documentation and receipt lifecycle tracking.{% endblock %}
+{% block page_actions %}
+  <a class="btn btn-primary" href="{% url 'receipt_create' %}">Create Receipt</a>
+{% endblock %}
+
+{% block content %}
+  <div class="block-card mb-3 fade-in-up">
+    <form method="get" class="row g-2">
+      <div class="col-md-4"><input name="search" value="{{ search }}" class="form-control" placeholder="Search receipt number"></div>
+      <div class="col-md-2"><button class="btn btn-outline-primary w-100" type="submit">Search</button></div>
+    </form>
+  </div>
+
+  <div class="block-card fade-in-up">
+    <div class="table-responsive">
+      <table class="table table-enterprise table-sm align-middle">
+        <thead><tr><th>Receipt #</th><th>Supplier</th><th>Source</th><th>Date</th><th>Recorded</th><th>Lines</th><th>Action</th></tr></thead>
+        <tbody>
+          {% for receipt in receipts %}
+            <tr>
+              <td>{{ receipt.receipt_number }}</td>
+              <td>{{ receipt.supplier.name }}</td>
+              <td>{{ receipt.source_type }}</td>
+              <td>{{ receipt.receipt_date }}</td>
+              <td>
+                {% if receipt.is_recorded %}
+                  <span class="badge text-bg-success">Recorded</span>
+                {% else %}
+                  <span class="badge text-bg-warning">Pending</span>
+                {% endif %}
+              </td>
+              <td>{{ receipt.lines.count }}</td>
+              <td><a class="btn btn-sm btn-outline-primary" href="{% url 'receipt_detail' receipt.id %}">Open</a></td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="7" class="text-center text-muted">No receipts found.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+{% endblock %}
