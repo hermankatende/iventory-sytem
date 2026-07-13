@@ -9,9 +9,19 @@ from config.logging import LOGGING
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
 
+
+def env_bool(name: str, default: str = "0") -> bool:
+    return os.getenv(name, default).strip().lower() in {"1", "true", "yes", "on"}
+
+
+def env_list(name: str, default: str = "") -> list[str]:
+    raw = os.getenv(name, default)
+    return [item.strip() for item in raw.split(",") if item.strip()]
+
+
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "unsafe-dev-key-change-me")
-DEBUG = os.getenv("DEBUG", "1") == "1"
-ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "*").split(",")
+DEBUG = env_bool("DEBUG", "1")
+ALLOWED_HOSTS = env_list("ALLOWED_HOSTS", "*")
 
 DJANGO_ENV = os.getenv("DJANGO_ENV", "offline").lower()
 OFFLINE_MODE = DJANGO_ENV != "online"
@@ -74,7 +84,7 @@ TEMPLATES = [
     }
 ]
 
-USE_SQLITE = os.getenv("USE_SQLITE", "1") == "1"
+USE_SQLITE = env_bool("USE_SQLITE", "1")
 
 if DJANGO_ENV == "online":
     USE_SQLITE = False
@@ -89,6 +99,11 @@ if USE_SQLITE:
         }
     }
 else:
+    mysql_options = {"charset": "utf8mb4"}
+    mysql_ssl_ca = os.getenv("MYSQL_SSL_CA", "").strip()
+    if mysql_ssl_ca:
+        mysql_options["ssl"] = {"ca": mysql_ssl_ca}
+
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.mysql",
@@ -97,7 +112,8 @@ else:
             "PASSWORD": os.getenv("MYSQL_PASSWORD", "root"),
             "HOST": os.getenv("MYSQL_HOST", "127.0.0.1"),
             "PORT": int(os.getenv("MYSQL_PORT", "3306")),
-            "OPTIONS": {"charset": "utf8mb4"},
+            "CONN_MAX_AGE": int(os.getenv("DB_CONN_MAX_AGE", "60")),
+            "OPTIONS": mysql_options,
         }
     }
 
@@ -110,10 +126,10 @@ STATIC_URL = "/static/"
 STATICFILES_DIRS = [
     BASE_DIR / "static",
 ]
-STATIC_ROOT = BASE_DIR / "staticfiles"
+STATIC_ROOT = Path(os.getenv("STATIC_ROOT", str(BASE_DIR / "staticfiles")))
 
 MEDIA_URL = "/media/"
-MEDIA_ROOT = BASE_DIR / "media"
+MEDIA_ROOT = Path(os.getenv("MEDIA_ROOT", str(BASE_DIR / "media")))
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
@@ -156,9 +172,29 @@ BACKUP_STORAGE_PATH = BASE_DIR / "backups"
 NOTIFICATION_BACKEND = "local_db" if OFFLINE_MODE else "email_or_queue"
 
 if DJANGO_ENV == "online":
-    SESSION_COOKIE_SECURE = True
-    CSRF_COOKIE_SECURE = True
-    SECURE_SSL_REDIRECT = True
+    if SECRET_KEY == "unsafe-dev-key-change-me":
+        raise RuntimeError("Set DJANGO_SECRET_KEY before running in online mode.")
+
+    if ALLOWED_HOSTS == ["*"]:
+        raise RuntimeError("Set ALLOWED_HOSTS explicitly before running in online mode.")
+
+    CSRF_TRUSTED_ORIGINS = env_list(
+        "CSRF_TRUSTED_ORIGINS",
+        ",".join(f"https://{host}" for host in ALLOWED_HOSTS if host != "*"),
+    )
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    USE_X_FORWARDED_HOST = True
+    SESSION_COOKIE_SECURE = env_bool("SESSION_COOKIE_SECURE", "1")
+    CSRF_COOKIE_SECURE = env_bool("CSRF_COOKIE_SECURE", "1")
+    SECURE_SSL_REDIRECT = env_bool("SECURE_SSL_REDIRECT", "1")
+    SECURE_HSTS_SECONDS = int(os.getenv("SECURE_HSTS_SECONDS", "31536000"))
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = env_bool("SECURE_HSTS_INCLUDE_SUBDOMAINS", "1")
+    SECURE_HSTS_PRELOAD = env_bool("SECURE_HSTS_PRELOAD", "0")
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    X_FRAME_OPTIONS = "DENY"
+    CSRF_COOKIE_HTTPONLY = env_bool("CSRF_COOKIE_HTTPONLY", "1")
+    SESSION_COOKIE_SAMESITE = os.getenv("SESSION_COOKIE_SAMESITE", "Lax")
+    CSRF_COOKIE_SAMESITE = os.getenv("CSRF_COOKIE_SAMESITE", "Lax")
 
 if DJANGO_ENV == "test":
     DEBUG = False
