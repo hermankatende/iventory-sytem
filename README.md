@@ -31,6 +31,33 @@ Business logic is isolated in the `src/application` and `src/domain` layers to s
 
 The test profile (`DJANGO_ENV=test`) uses SQLite for deterministic local execution and does not require MySQL connectivity.
 
+## PythonAnywhere Deployment
+1. Create a new PythonAnywhere web app using the manual Django setup.
+2. Clone this GitHub repository in your PythonAnywhere console:
+
+	`git clone https://github.com/hermankatende/iventory-sytem.git`
+
+3. Create and activate a virtualenv, then install dependencies:
+
+	`pip install -r requirements.txt`
+
+4. Set environment variables in the PythonAnywhere web app or `.env` file:
+
+	- `DJANGO_ENV=online`
+	- `DEBUG=0`
+	- `ALLOWED_HOSTS=<your-username>.pythonanywhere.com`
+	- `DJANGO_SECRET_KEY=<secure-secret>`
+	- MySQL settings if you use PythonAnywhere MySQL
+
+5. Run migrations and collect static files:
+
+	`python manage.py migrate`
+	`python manage.py collectstatic --noinput`
+
+6. Point the PythonAnywhere WSGI file at `config.wsgi.application`.
+7. Add the static and media mappings in the PythonAnywhere Web tab.
+8. Reload the web app and verify login, dashboard, payments, and reports.
+
 ## Architecture Documents
 - `docs/architecture/01-complete-architecture.md`
 - `docs/architecture/02-folder-structure.md`
